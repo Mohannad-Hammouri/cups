@@ -70,6 +70,7 @@ input,select{font:inherit;color:var(--paper-ink);background:#fff;border:1.5px so
 .toggle input{width:20px;height:20px;accent-color:var(--paper-ink)}
 .preview{background:var(--felt);border-radius:14px;padding:6px}
 .preview svg{width:100%;height:auto;max-height:230px;display:block}
+.played{color:#8A6B4A;font-size:.82rem}
 .hint{display:flex;gap:14px;flex-wrap:wrap;font-size:.85rem;color:#7A5E40}
 
 /* game */
@@ -133,7 +134,7 @@ const store = { get(k,d){ try{ const v=localStorage.getItem('cups:'+k); return v
                different orientation → base-on-base or rim-on-rim, full height.
    On two neighbours with equal tops → bridged (pyramid). */
 const STEP=74, H=68, NEST=18, WIDE=30, NARROW=20;
-function gen(level, recent){
+function gen(level, record=false, depth=0){
   const cfg = {
     easy:{maxTop:2*H+NEST, base:[3,4,4,5,6], gaps:[0]},
     mid:{maxTop:3*H+2*NEST, base:[2,3,3,4,5], gaps:[0,0,1]},
@@ -170,13 +171,30 @@ function gen(level, recent){
     const minX = Math.min(...cups.map(c=>c.x));
     cups.forEach(c => c.x -= minX);
     cups.sort((a,b)=>a.h-b.h || a.x-b.x);
-    const sig = cups.map(c=>`${c.x},${c.h},${+c.up}`).join('|');
-    if(recent.includes(sig)) continue;
-    recent.push(sig); if(recent.length>60) recent.shift();
+    const key = shapeKey(cups);
+    if(USED.has(key)) continue;
+    if(record) markUsed(key);
     const order = shuffle([0,1,2,3,4,5]); cups.forEach((c,i)=>c.color=order[i]);
     return cups;
   }
-  return gen('mid', []);
+  // this level is used up: move to the next level, and only start over when every level is exhausted
+  const nextLv = {easy:'mid', mid:'hard', hard:null}[level];
+  if(nextLv && depth<3) return gen(nextLv, record, depth+1);
+  USED.clear(); store.set('used', []);
+  return gen(level, record, 9);
+}
+/* every shape ever played on this device is remembered; a shape and its mirror count as the same */
+const USED = new Set(store.get('used', []));
+function shapeKey(cups){
+  const maxX = Math.max(...cups.map(c=>c.x));
+  const s = list => list.map(c=>`${c.x},${c.h},${+c.up}`).sort().join('|');
+  const a = s(cups), b = s(cups.map(c=>({x:maxX-c.x, h:c.h, up:c.up})));
+  return a < b ? a : b;
+}
+function markUsed(key){
+  USED.add(key);
+  if(USED.size > 20000) USED.delete(USED.values().next().value);
+  store.set('used', [...USED]);
 }
 
 /* ================= drawing ================= */
@@ -338,7 +356,7 @@ function render(){
   const app=$('#app'), P=st.phase;
 
   if(P==='setup'){
-    if(!st.preview) st.preview = gen(st.level, []);
+    if(!st.preview) st.preview = gen(st.level, false);
     const seg = (id, opts, val) => `<div class="seg" role="group">${opts.map(([v,l])=>`<button data-seg="${id}" data-v="${v}" aria-pressed="${String(v)===String(val)}">${l}</button>`).join('')}</div>`;
     app.innerHTML = `
       <div class="topbar"><div class="hero">
@@ -364,7 +382,7 @@ function render(){
           <div>
             <div class="setting"><span>عدد الجولات</span>${seg('rounds',[[3,'٣'],[5,'٥'],[7,'٧'],[10,'١٠']],st.rounds)}</div>
             <div class="setting"><span>الصعوبة</span>${seg('level',[['easy','سهل'],['mid','متوسط'],['hard','صعب']],st.level)}</div>
-            <div class="setting"><label class="toggle"><input type="checkbox" id="same" ${st.same?'checked':''}> نفس الشكل لكل اللاعبين بالجولة</label></div>
+            <div class="setting"><span>كل دور شكل جديد، وما بيتكرر أبداً<br><small class="played">انلعب لحد هلق: ${ar(USED.size)} شكل</small></span><button id="resetUsed" ${USED.size?'':'disabled'}>صفّر السجل</button></div>
             <div class="setting"><label class="toggle"><input type="checkbox" id="colored" ${st.colored?'checked':''}> كاسات ملوّنة (اللون جزء من الحل)</label></div>
           </div>
           <div class="label">مثال</div>
@@ -374,19 +392,20 @@ function render(){
         </div>
       </div>
       <div class="actions"><button class="btn-big" id="start">يلا نلعب</button></div>`;
-    const sync = () => { st.players = st.players.map((p,i)=>($('#p'+i)?.value.trim())||p); st.same=$('#same').checked; st.colored=$('#colored').checked; };
+    const sync = () => { st.players = st.players.map((p,i)=>($('#p'+i)?.value.trim())||p); st.colored=$('#colored').checked; };
     bindMusic(); bindSteppers();
     app.querySelectorAll('[data-seg]').forEach(b => b.onclick = () => {
       sync(); const k=b.dataset.seg, v=b.dataset.v; st[k] = k==='level'?v:+v;
-      if(k==='level') st.preview = gen(st.level, []); render(); });
+      if(k==='level') st.preview = gen(st.level, false); render(); });
     app.querySelectorAll('[data-del]').forEach(b => b.onclick = () => { sync(); st.players.splice(+b.dataset.del,1); render(); });
     $('#add').onclick = () => { sync(); st.players.push('لاعب '+ar(st.players.length+1)); render(); $('#p'+(st.players.length-1)).select(); };
-    $('#another').onclick = () => { sync(); st.preview = gen(st.level, []); render(); };
+    $('#another').onclick = () => { sync(); st.preview = gen(st.level, false); render(); };
     $('#colored').onchange = () => { sync(); render(); };
+    $('#resetUsed').onclick = () => { USED.clear(); store.set('used', []); Music.sfx('tick'); render(); };
     $('#start').onclick = () => {
       sync(); saveSettings(); wake(); Music.start(); Music.sfx('go');
       st.scores=st.players.map(()=>0); st.round=1; st.turn=0; st.recent=[]; st.curShow=st.showSec; st.curBuild=st.buildSec;
-      st.shape=gen(st.level, st.recent); go('ready');
+      st.shape=gen(st.level, true); go('ready');
     };
     Music.mode('calm');
     return;
@@ -465,8 +484,8 @@ function render(){
         if(st.round>st.rounds){ go('end'); return; }
         st.curShow = Math.max(1, +(st.curShow - st.showDec).toFixed(1));
         st.curBuild = Math.max(10, st.curBuild - st.buildDec);
-        st.shape = gen(st.level, st.recent);
-      } else if(!st.same) st.shape = gen(st.level, st.recent);
+      }
+      st.shape = gen(st.level, true);
       go('ready');
     };
     $('#yes').onclick=()=>next(true); $('#no').onclick=()=>next(false);
@@ -489,7 +508,7 @@ function render(){
         </div>
       </div></div>`;
     bindMusic();
-    $('#again').onclick=()=>{ st.scores=st.players.map(()=>0); st.round=1; st.turn=0; st.curShow=st.showSec; st.curBuild=st.buildSec; st.shape=gen(st.level,st.recent); Music.start(); go('ready'); };
+    $('#again').onclick=()=>{ st.scores=st.players.map(()=>0); st.round=1; st.turn=0; st.curShow=st.showSec; st.curBuild=st.buildSec; st.shape=gen(st.level,true); Music.start(); go('ready'); };
     $('#settings').onclick=()=>{ st.preview=null; go('setup'); };
     return;
   }
