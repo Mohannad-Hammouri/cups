@@ -1,0 +1,507 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>تحدي الكاسات</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lalezar&family=IBM+Plex+Sans+Arabic:wght@400;500;700&display=swap">
+<style>
+/* Layout: one-screen game on a felt tabletop — score tokens on top, big cup stage centre, actions at the bottom.
+   Deliberately single-theme (game-night table), so colours are set explicitly. */
+:root{
+  --felt:#0F4A44; --felt-hi:#18665E; --felt-lo:#0A3531;
+  --paper:#F7ECDA; --paper-ink:#2B1D10; --paper-line:#E2D1B5;
+  --text:#F4ECDE; --dim:#A9C7BF;
+  --sun:#FFC63A; --sun-ink:#2B1D10; --coral:#FF6A4B; --mint:#4ED38C;
+  --kraft:#CF9E63; --kraft-dk:#8A5A2B; --kraft-lt:#F0DDBD; --inside:#4A2D12; --wood:#6B4423;
+  --display:"Lalezar","IBM Plex Sans Arabic",system-ui,sans-serif;
+  --body:"IBM Plex Sans Arabic",system-ui,-apple-system,"Segoe UI",Tahoma,sans-serif;
+  color-scheme:dark;
+}
+html,body{height:100%}
+body{margin:0;background:var(--felt);background-image:radial-gradient(ellipse at 50% 35%,var(--felt-hi),var(--felt) 55%,var(--felt-lo));
+  background-attachment:fixed;color:var(--text);font-family:var(--body);font-size:16px;line-height:1.6;direction:rtl}
+#app{min-height:100%;display:flex;flex-direction:column;max-width:1040px;margin:0 auto;box-sizing:border-box;gap:14px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:14px}
+h1,h2,.disp{font-family:var(--display);font-weight:400;line-height:1.1;text-wrap:balance;margin:0}
+h1{font-size:clamp(2.4rem,8vw,4.2rem)}
+h2{font-size:clamp(1.6rem,5vw,2.4rem)}
+.dim{color:var(--dim)}
+button{font:inherit;cursor:pointer;border:0;border-radius:14px;padding:10px 18px;font-weight:700;color:var(--paper-ink);background:var(--paper);
+  box-shadow:0 4px 0 rgba(0,0,0,.25);transition:transform .08s, box-shadow .08s}
+button:active{transform:translateY(3px);box-shadow:0 1px 0 rgba(0,0,0,.25)}
+button:disabled{opacity:.4;cursor:default}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--sun);outline-offset:3px}
+.btn-big{font-family:var(--display);font-weight:400;font-size:clamp(1.4rem,4vw,1.9rem);padding:12px 34px;background:var(--sun);color:var(--sun-ink);box-shadow:0 6px 0 #B98A14}
+.btn-big:active{box-shadow:0 2px 0 #B98A14}
+.btn-good{background:var(--mint);color:#08311C;box-shadow:0 6px 0 #2A9460;font-family:var(--display);font-weight:400;font-size:1.7rem;flex:1;padding:12px}
+.btn-bad{background:var(--coral);color:#3A0D04;box-shadow:0 6px 0 #B9402A;font-family:var(--display);font-weight:400;font-size:1.7rem;flex:1;padding:12px}
+.btn-ghost{background:transparent;color:var(--dim);box-shadow:none;border:1.5px solid rgba(255,255,255,.18)}
+.icon-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 12px}
+.icon-btn svg{width:20px;height:20px}
+
+/* setup */
+.hero{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.hero h1{color:var(--sun);text-shadow:0 4px 0 rgba(0,0,0,.25)}
+.hero p{margin:4px 0 0;max-width:58ch;color:var(--dim)}
+.setup{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+@media (max-width:760px){.setup{grid-template-columns:1fr}}
+.card{background:var(--paper);color:var(--paper-ink);border-radius:18px;padding:18px;display:flex;flex-direction:column;gap:12px;min-width:0;
+  box-shadow:0 10px 30px rgba(0,0,0,.25)}
+.card button{background:#fff;box-shadow:0 3px 0 var(--paper-line)}
+.label{font-size:.78rem;letter-spacing:.06em;color:#8A6B4A;font-weight:700}
+input,select{font:inherit;color:var(--paper-ink);background:#fff;border:1.5px solid var(--paper-line);border-radius:10px;padding:8px 10px;min-width:0}
+.players{display:flex;flex-direction:column;gap:8px}
+.prow{display:flex;gap:8px}
+.prow input{flex:1}
+.prow button{padding:6px 12px}
+.setting{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-bottom:1px dashed var(--paper-line);flex-wrap:wrap}
+.setting:last-child{border-bottom:0}
+.setting>span{font-weight:500}
+.stepper{display:flex;align-items:center;gap:6px}
+.stepper button{width:38px;height:38px;padding:0;font-size:1.3rem;line-height:1}
+.stepper output{min-width:76px;text-align:center;font-family:var(--display);font-size:1.3rem;font-variant-numeric:tabular-nums}
+.seg{display:flex;background:#fff;border:1.5px solid var(--paper-line);border-radius:12px;padding:3px;gap:3px}
+.seg button{box-shadow:none;background:transparent;padding:6px 10px;border-radius:9px;font-size:.9rem}
+.seg button[aria-pressed="true"]{background:var(--paper-ink);color:var(--paper)}
+.toggle{display:flex;align-items:center;gap:8px;cursor:pointer}
+.toggle input{width:20px;height:20px;accent-color:var(--paper-ink)}
+.preview{background:var(--felt);border-radius:14px;padding:6px}
+.preview svg{width:100%;height:auto;max-height:230px;display:block}
+.hint{display:flex;gap:14px;flex-wrap:wrap;font-size:.85rem;color:#7A5E40}
+
+/* game */
+.topbar{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.pill{font-family:var(--display);font-size:1.15rem;background:rgba(0,0,0,.22);padding:4px 14px;border-radius:999px;font-variant-numeric:tabular-nums}
+.tokens{display:flex;gap:8px;flex-wrap:wrap}
+.token{display:flex;align-items:center;gap:8px;padding:4px 6px 4px 12px;border-radius:999px;background:rgba(0,0,0,.22);font-weight:700;font-size:.95rem;border:2px solid transparent}
+.token.on{border-color:var(--sun);background:rgba(255,198,58,.14)}
+.token b{font-family:var(--display);font-weight:400;font-size:1.15rem;background:var(--paper);color:var(--paper-ink);min-width:30px;height:30px;border-radius:50%;
+  display:grid;place-items:center;font-variant-numeric:tabular-nums}
+.token.bump b{animation:bump .6s ease-out}
+@keyframes bump{0%{transform:scale(1)}30%{transform:scale(1.5);background:var(--mint)}100%{transform:scale(1)}}
+.stage{flex:1;display:flex;align-items:center;justify-content:center;min-height:260px;position:relative}
+.stage>svg.shape{width:100%;max-width:720px;max-height:56vh;height:auto;display:block;filter:drop-shadow(0 10px 14px rgba(0,0,0,.3))}
+.center{text-align:center;display:flex;flex-direction:column;align-items:center;gap:12px}
+.whose{font-size:1rem;color:var(--dim);letter-spacing:.04em}
+.name{color:var(--sun);text-shadow:0 5px 0 rgba(0,0,0,.25);font-size:clamp(3rem,12vw,6rem)}
+.quick{display:flex;gap:18px;flex-wrap:wrap;justify-content:center;background:rgba(0,0,0,.2);padding:10px 16px;border-radius:16px}
+.quick .stepper button{background:var(--paper)}
+.quick .stepper output{color:var(--text)}
+.quick .lab{font-size:.85rem;color:var(--dim);text-align:center}
+.count{font-family:var(--display);font-size:clamp(8rem,32vw,16rem);line-height:1;color:var(--sun);text-shadow:0 8px 0 rgba(0,0,0,.25)}
+.ring{position:relative;display:grid;place-items:center}
+.ring svg{display:block}
+.ring .num{position:absolute;font-family:var(--display);font-variant-numeric:tabular-nums;line-height:1}
+.ring-small{position:absolute;top:0;left:0}
+.ring-small .num{font-size:1.4rem}
+.ring-big .num{font-size:clamp(3rem,12vw,5.5rem)}
+.ring.urgent .num{color:var(--coral)}
+.cue{font-family:var(--display);font-size:clamp(2rem,8vw,3.6rem);color:var(--text)}
+.actions{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+.judge{display:flex;gap:14px;width:100%;max-width:560px;margin:0 auto}
+.podium{display:flex;flex-direction:column;gap:8px;width:100%;max-width:460px}
+.podium .line{display:flex;justify-content:space-between;align-items:center;padding:10px 18px;border-radius:14px;background:rgba(0,0,0,.22);font-weight:700;font-size:1.1rem}
+.podium .line.win{background:var(--sun);color:var(--sun-ink)}
+.podium .line b{font-family:var(--display);font-weight:400;font-size:1.7rem;font-variant-numeric:tabular-nums}
+.pop{animation:pop .4s cubic-bezier(.3,1.6,.5,1)}
+@keyframes pop{from{transform:scale(.5);opacity:0}to{transform:scale(1);opacity:1}}
+.corner{display:flex;gap:8px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+(function(){
+const $ = s => document.querySelector(s);
+const ar = n => String(n).replace('.', '٫').replace(/\d/g, d => '٠١٢٣٤٥٦٧٨٩'[d]);
+const rnd = (a,b) => a + Math.floor(Math.random()*(b-a+1));
+const pick = a => a[Math.floor(Math.random()*a.length)];
+const shuffle = a => { a=a.slice(); for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; };
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const COLORS = ['#E2453A','#2F6FE0','#F2BE1E','#2FA866','#9055D6','#F07F2A'];
+const store = { get(k,d){ try{ const v=localStorage.getItem('cups:'+k); return v?JSON.parse(v):d; }catch(e){ return d; } },
+                set(k,v){ try{ localStorage.setItem('cups:'+k, JSON.stringify(v)); }catch(e){} } };
+
+/* ================= shape generator =================
+   cup = {x, h (bottom height), up (opening up?)}
+   On one cup: same orientation → nested (sits low, only the rim sticks out);
+               different orientation → base-on-base or rim-on-rim, full height.
+   On two neighbours with equal tops → bridged (pyramid). */
+const STEP=74, H=68, NEST=18, WIDE=30, NARROW=20;
+function gen(level, recent){
+  const cfg = {
+    easy:{maxTop:2*H+NEST, base:[3,4,4,5,6], gaps:[0]},
+    mid:{maxTop:3*H+2*NEST, base:[2,3,3,4,5], gaps:[0,0,1]},
+    hard:{maxTop:4*H+2*NEST, base:[1,2,2,3,3,4], gaps:[0,1,2]}
+  }[level];
+  for(let attempt=0; attempt<600; attempt++){
+    const k = pick(cfg.base), span = k + pick(cfg.gaps);
+    const xs = shuffle([...Array(span).keys()]).slice(0,k).sort((a,b)=>a-b);
+    const cups = xs.map(x => ({x, h:0, up:Math.random()<.5}));
+    const clash = (x,h,skip) => cups.some(c => !skip.includes(c) && Math.abs(c.x-x)<1 && c.h < h+H-1 && h < c.h+H-1);
+    while(cups.length < 6){
+      const cands = [];
+      for(const c of cups){
+        for(const up of [true,false]){
+          const h = up===c.up ? c.h+NEST : c.h+H;
+          if(h+H <= cfg.maxTop && !clash(c.x,h,[c])) cands.push({x:c.x, h, up, w:up===c.up?1:2});
+        }
+        for(const d of cups){
+          if(d.x-c.x===1 && c.h+H===d.h+H && c.h===d.h){
+            const h = c.h+H;
+            if(h+H <= cfg.maxTop && !clash(c.x+.5,h,[c,d]))
+              for(const up of [true,false]) cands.push({x:c.x+.5, h, up, w:2});
+          }
+        }
+      }
+      if(!cands.length) break;
+      const bag = cands.flatMap(c => Array(c.w).fill(c));
+      const s = pick(bag);
+      cups.push({x:s.x, h:s.h, up:s.up});
+    }
+    if(cups.length!==6) continue;
+    const top = Math.max(...cups.map(c=>c.h));
+    if(level!=='easy' && top===0) continue;
+    const minX = Math.min(...cups.map(c=>c.x));
+    cups.forEach(c => c.x -= minX);
+    cups.sort((a,b)=>a.h-b.h || a.x-b.x);
+    const sig = cups.map(c=>`${c.x},${c.h},${+c.up}`).join('|');
+    if(recent.includes(sig)) continue;
+    recent.push(sig); if(recent.length>60) recent.shift();
+    const order = shuffle([0,1,2,3,4,5]); cups.forEach((c,i)=>c.color=order[i]);
+    return cups;
+  }
+  return gen('mid', []);
+}
+
+/* ================= drawing ================= */
+function cupSVG(c, ox, baseY, colored, coveredOpening){
+  const cx = ox + c.x*STEP, bot = baseY - c.h, top = bot - H + 2;
+  const body = colored ? COLORS[c.color] : 'var(--kraft)';
+  const shade = colored ? 'rgba(0,0,0,.35)' : 'var(--kraft-dk)';
+  const lt = colored ? 'rgba(255,255,255,.7)' : 'var(--kraft-lt)';
+  if(c.up){
+    return `<g>
+      <polygon points="${cx-WIDE},${top} ${cx+WIDE},${top} ${cx+NARROW},${bot} ${cx-NARROW},${bot}" fill="${body}" stroke="${shade}" stroke-width="2" stroke-linejoin="round"/>
+      <polygon points="${cx-WIDE+1},${top+5} ${cx+WIDE-1},${top+5} ${cx+WIDE-3},${top+13} ${cx-WIDE+3},${top+13}" fill="${shade}" opacity=".5"/>
+      <polygon points="${cx-WIDE+9},${top+16} ${cx-WIDE+13},${top+16} ${cx-NARROW+6},${bot-6} ${cx-NARROW+3},${bot-6}" fill="#fff" opacity=".18"/>
+      <ellipse cx="${cx}" cy="${top}" rx="${WIDE}" ry="7" fill="${coveredOpening?'none':'var(--inside)'}" stroke="${lt}" stroke-width="3"/>
+    </g>`;
+  }
+  return `<g>
+    <polygon points="${cx-NARROW},${top} ${cx+NARROW},${top} ${cx+WIDE},${bot} ${cx-WIDE},${bot}" fill="${body}" stroke="${shade}" stroke-width="2" stroke-linejoin="round"/>
+    <polygon points="${cx-WIDE+3},${bot-13} ${cx+WIDE-3},${bot-13} ${cx+WIDE-1},${bot-5} ${cx-WIDE+1},${bot-5}" fill="${shade}" opacity=".5"/>
+    <polygon points="${cx-NARROW+3},${top+6} ${cx-NARROW+6},${top+6} ${cx-WIDE+13},${bot-16} ${cx-WIDE+9},${bot-16}" fill="#fff" opacity=".18"/>
+    <ellipse cx="${cx}" cy="${top}" rx="${NARROW}" ry="4.5" fill="${lt}" stroke="${shade}" stroke-width="2"/>
+  </g>`;
+}
+function shapeSVG(cups, colored){
+  const maxX = Math.max(...cups.map(c=>c.x)), topH = Math.max(...cups.map(c=>c.h))+H;
+  const pad=26, W = Math.max(maxX*STEP + WIDE*2 + pad*2, 5*STEP + WIDE*2 + pad*2), ox = (W - maxX*STEP)/2;
+  const hh = Math.max(topH, 3*H) + 46, baseY = hh - 26;
+  // upright cups nested in an upright cup are drawn first, so the outer cup hides their body and only the rim pokes out
+  const nestedUp = c => c.up && cups.some(s => s!==c && s.up && s.x===c.x && c.h===s.h+NEST);
+  const z = new Map();
+  const zOf = c => { if(z.has(c)) return z.get(c);
+    let v = c.h; if(nestedUp(c)){ const s = cups.find(s=>s.up && s.x===c.x && c.h===s.h+NEST); v = zOf(s)-0.1; }
+    z.set(c,v); return v; };
+  const covered = c => c.up && cups.some(n => nestedUp(n) && n.x===c.x && n.h===c.h+NEST);
+  const g = cups.slice().sort((a,b)=>zOf(a)-zOf(b)).map(c=>cupSVG(c,ox,baseY,colored,covered(c))).join('');
+  return `<svg class="shape" viewBox="0 0 ${W} ${hh}" role="img" aria-label="شكل الكاسات">
+    <ellipse cx="${W/2}" cy="${baseY+4}" rx="${W/2-30}" ry="10" fill="rgba(0,0,0,.25)"/>
+    <rect x="14" y="${baseY}" width="${W-28}" height="9" rx="4.5" fill="var(--wood)"/>${g}</svg>`;
+}
+
+/* ================= music (generated live, no files) ================= */
+const Music = (() => {
+  let ctx=null, master=null, on=store.get('music', true), timer=null, step=0, next=0, mode='calm', noise=null;
+  const N = m => 440*Math.pow(2,(m-69)/12);
+  const prog = [[57,60,64],[53,57,60],[48,52,55],[55,59,62]]; // Am F C G
+  const tempo = {calm:108, show:84, build:126, rush:156};
+  function ensure(){
+    if(ctx) return true;
+    try{ ctx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ return false; }
+    master = ctx.createGain(); master.gain.value = on ? .32 : 0; master.connect(ctx.destination);
+    noise = ctx.createBuffer(1, ctx.sampleRate*.2, ctx.sampleRate);
+    const d = noise.getChannelData(0); for(let i=0;i<d.length;i++) d[i]=Math.random()*2-1;
+    return true;
+  }
+  function tone(f,t,dur,type,vol){
+    const o=ctx.createOscillator(), g=ctx.createGain(); o.type=type; o.frequency.value=f;
+    g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(vol,t+.008); g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+    o.connect(g); g.connect(master); o.start(t); o.stop(t+dur+.02);
+  }
+  function kick(t,v=.9){ const o=ctx.createOscillator(), g=ctx.createGain();
+    o.frequency.setValueAtTime(140,t); o.frequency.exponentialRampToValueAtTime(42,t+.14);
+    g.gain.setValueAtTime(v,t); g.gain.exponentialRampToValueAtTime(.0001,t+.22); o.connect(g); g.connect(master); o.start(t); o.stop(t+.25); }
+  function hat(t,v=.12){ const s=ctx.createBufferSource(), f=ctx.createBiquadFilter(), g=ctx.createGain();
+    s.buffer=noise; f.type='highpass'; f.frequency.value=7000; g.gain.setValueAtTime(v,t); g.gain.exponentialRampToValueAtTime(.0001,t+.05);
+    s.connect(f); f.connect(g); g.connect(master); s.start(t); s.stop(t+.06); }
+  function clap(t){ const s=ctx.createBufferSource(), f=ctx.createBiquadFilter(), g=ctx.createGain();
+    s.buffer=noise; f.type='bandpass'; f.frequency.value=1500; g.gain.setValueAtTime(.35,t); g.gain.exponentialRampToValueAtTime(.0001,t+.12);
+    s.connect(f); f.connect(g); g.connect(master); s.start(t); s.stop(t+.14); }
+  function play(i,t){
+    const sixteenth = 60/tempo[mode]/4, bar = Math.floor(i/16)%4, s = i%16, ch = prog[bar];
+    if(mode==='show'){ if(s===0||s===3) kick(t,.7); if(s%4===2) hat(t,.06); return; }
+    if(s===0||s===8||(mode!=='calm'&&(s===4||s===12))) kick(t);
+    if(s===4||s===12) clap(t);
+    if(s%2===1 || mode==='rush') hat(t, s%4===2?.14:.08);
+    if([0,3,6,8,11,14].includes(s)) tone(N(ch[0]-24), t, sixteenth*1.8, 'triangle', .5);
+    if(s===2||s===10) ch.forEach(m=>tone(N(m), t, sixteenth*1.2, 'square', .045));
+    if(mode!=='calm'){ const arp=[0,1,2,1]; tone(N(ch[arp[s%4]]+12), t, sixteenth*.9, 'sine', mode==='rush'?.12:.08); }
+    else if(s===6||s===14) tone(N(ch[2]+12), t, sixteenth*2.5, 'sine', .07);
+  }
+  function loop(){
+    while(next < ctx.currentTime + .12){ play(step, next); next += 60/tempo[mode]/4; step++; }
+  }
+  return {
+    get on(){ return on; },
+    start(){ if(!ensure()) return; ctx.resume?.(); if(timer) return; next = ctx.currentTime+.05; step=0; timer=setInterval(loop,25); },
+    mode(m){ if(m!==mode){ mode=m; } },
+    toggle(){ on=!on; store.set('music',on); if(ensure()){ master.gain.setTargetAtTime(on?.32:0, ctx.currentTime, .05); if(on) this.start(); } return on; },
+    sfx(kind){ if(!ensure()) return; ctx.resume?.(); const t=ctx.currentTime;
+      const s = { tick:()=>tone(N(84),t,.08,'square',.12), go:()=>{tone(N(72),t,.12,'square',.15);tone(N(79),t+.1,.25,'square',.15);},
+        hide:()=>{tone(N(67),t,.1,'triangle',.4);tone(N(60),t+.08,.25,'triangle',.4);},
+        yes:()=>[72,76,79,84].forEach((m,i)=>tone(N(m),t+i*.07,.18,'square',.12)),
+        no:()=>{tone(N(52),t,.18,'sawtooth',.12);tone(N(47),t+.15,.35,'sawtooth',.12);},
+        buzz:()=>tone(N(40),t,.6,'sawtooth',.18),
+        win:()=>[60,64,67,72,67,72,76,79].forEach((m,i)=>tone(N(m),t+i*.1,.2,'square',.12)) }[kind];
+      const g = master.gain.value; if(!on){ master.gain.value=.32; s&&s(); setTimeout(()=>{ if(!on) master.gain.value=0; }, 900); } else s&&s(); }
+  };
+})();
+
+/* ================= state ================= */
+const saved = store.get('settings', {});
+let st = Object.assign({
+  phase:'setup', players:['فريق ١','فريق ٢'],
+  showSec:5, buildSec:60, rounds:5, level:'mid', same:true, colored:false, showDec:0.5, buildDec:5,
+  curShow:5, curBuild:60, scores:[], round:1, turn:0, shape:null, recent:[], preview:null, bump:-1
+}, saved, {phase:'setup', preview:null});
+const saveSettings = () => store.set('settings', {players:st.players, showSec:st.showSec, buildSec:st.buildSec, rounds:st.rounds,
+  level:st.level, same:st.same, colored:st.colored, showDec:st.showDec, buildDec:st.buildDec});
+
+let timers=[];
+const clearTimers = () => { timers.forEach(t=>{clearTimeout(t);cancelAnimationFrame(t);}); timers=[]; };
+async function wake(){ try{ await navigator.wakeLock?.request('screen'); }catch(e){} }
+function go(p){ clearTimers(); st.phase=p; render(); }
+
+const SPEAKER_ON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4z" fill="currentColor"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>';
+const SPEAKER_OFF = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4z" fill="currentColor"/><path d="m16 9 6 6M22 9l-6 6"/></svg>';
+const musicBtn = () => `<button class="icon-btn btn-ghost" id="mus" aria-pressed="${Music.on}" aria-label="الموسيقى">${Music.on?SPEAKER_ON:SPEAKER_OFF}<span>${Music.on?'الموسيقى شغالة':'الموسيقى مطفية'}</span></button>`;
+function bindMusic(){ const b=$('#mus'); if(b) b.onclick=()=>{ Music.toggle(); b.outerHTML=musicBtn(); bindMusic(); }; }
+
+const fmtS = v => ar(v)+' ث';
+const fmtB = v => v>=60 && v%60===0 ? (v===60?'دقيقة':ar(v/60)+' دقايق') : ar(v)+' ث';
+function stepper(id, val, fmt){ return `<div class="stepper"><button data-step="${id}" data-d="+" aria-label="زيادة">+</button><output id="${id}">${fmt(val)}</output><button data-step="${id}" data-d="-" aria-label="تقليل">−</button></div>`; }
+const LIM = { showSec:[1,15,.5], buildSec:[10,300,5], curShow:[1,15,.5], curBuild:[10,300,5] };
+function bindSteppers(after){
+  document.querySelectorAll('[data-step]').forEach(b => b.onclick = () => {
+    const k=b.dataset.step, [mn,mx,inc]=LIM[k];
+    st[k] = Math.min(mx, Math.max(mn, +(st[k] + (b.dataset.d==='+'?inc:-inc)).toFixed(1)));
+    $('#'+k).textContent = (k.toLowerCase().includes('show')?fmtS:fmtB)(st[k]);
+    Music.sfx('tick'); after&&after();
+  });
+}
+function topbar(){
+  return `<div class="topbar">
+    <div class="corner"><span class="pill">الجولة ${ar(st.round)} / ${ar(st.rounds)}</span>${musicBtn()}</div>
+    <div class="tokens">${st.players.map((p,i)=>`<span class="token ${i===st.turn&&st.phase!=='end'?'on':''} ${i===st.bump?'bump':''}">${esc(p)}<b>${ar(st.scores[i]||0)}</b></span>`).join('')}</div>
+  </div>`;
+}
+function ring(cls, total){
+  const r=cls==='ring-big'?78:26, sw=cls==='ring-big'?12:6, s=(r+sw)*2, C=2*Math.PI*r;
+  return `<div class="ring ${cls}" id="ring"><svg width="${s}" height="${s}" viewBox="0 0 ${s} ${s}">
+    <circle cx="${s/2}" cy="${s/2}" r="${r}" fill="rgba(0,0,0,.25)" stroke="rgba(255,255,255,.12)" stroke-width="${sw}"/>
+    <circle id="arc" cx="${s/2}" cy="${s/2}" r="${r}" fill="none" stroke="var(--sun)" stroke-width="${sw}" stroke-linecap="round"
+      stroke-dasharray="${C}" stroke-dashoffset="0" transform="rotate(-90 ${s/2} ${s/2})"/></svg>
+    <span class="num" id="num">${ar(Math.ceil(total))}</span></div>`;
+}
+function runRing(sec, done, onSec){
+  const arc=$('#arc'), C=+arc.getAttribute('stroke-dasharray'), t0=performance.now(), ms=sec*1000; let last=Math.ceil(sec);
+  const f = now => {
+    const left=Math.max(0,ms-(now-t0)); arc.setAttribute('stroke-dashoffset', C*(1-left/ms));
+    const s=Math.ceil(left/1000);
+    if(s!==last){ last=s; const n=$('#num'); if(n) n.textContent = s>=60 ? `${ar(Math.floor(s/60))}:${ar(String(s%60).padStart(2,'0'))}` : ar(s); onSec&&onSec(s); }
+    if(left<=0){ done(); return; }
+    timers.push(requestAnimationFrame(f));
+  };
+  timers.push(requestAnimationFrame(f));
+}
+
+/* ================= screens ================= */
+function render(){
+  const app=$('#app'), P=st.phase;
+
+  if(P==='setup'){
+    if(!st.preview) st.preview = gen(st.level, []);
+    const seg = (id, opts, val) => `<div class="seg" role="group">${opts.map(([v,l])=>`<button data-seg="${id}" data-v="${v}" aria-pressed="${String(v)===String(val)}">${l}</button>`).join('')}</div>`;
+    app.innerHTML = `
+      <div class="topbar"><div class="hero">
+        <div><h1>تحدي الكاسات</h1>
+        <p>٦ كاسات كرتون. الشكل بيظهر ثواني وبيختفي، وكل لاعب لازم يبنيه بوقته: كل كاسة بمكانها ووضعيتها. بتطلع صح؟ نقطة.</p></div>
+      </div>${musicBtn()}</div>
+      <div class="setup">
+        <div class="card">
+          <div class="label">اللاعبين / الفرق</div>
+          <div class="players">${st.players.map((p,i)=>`<div class="prow"><input id="p${i}" value="${esc(p)}" aria-label="اسم ${i+1}">
+            <button data-del="${i}" aria-label="احذف" ${st.players.length<2?'disabled':''}>✕</button></div>`).join('')}</div>
+          <div><button id="add">+ أضف لاعب</button></div>
+          <div class="label" style="margin-top:6px">الوقت</div>
+          <div>
+            <div class="setting"><span>مدة ظهور الشكل</span>${stepper('showSec',st.showSec,fmtS)}</div>
+            <div class="setting"><span>وقت الترتيب لكل لاعب</span>${stepper('buildSec',st.buildSec,fmtB)}</div>
+            <div class="setting"><span>كل جولة يقل وقت الظهور</span>${seg('showDec',[[0,'لا'],[0.5,'½ ث'],[1,'١ ث']],st.showDec)}</div>
+            <div class="setting"><span>كل جولة يقل وقت الترتيب</span>${seg('buildDec',[[0,'لا'],[5,'٥ ث'],[10,'١٠ ث']],st.buildDec)}</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="label">اللعبة</div>
+          <div>
+            <div class="setting"><span>عدد الجولات</span>${seg('rounds',[[3,'٣'],[5,'٥'],[7,'٧'],[10,'١٠']],st.rounds)}</div>
+            <div class="setting"><span>الصعوبة</span>${seg('level',[['easy','سهل'],['mid','متوسط'],['hard','صعب']],st.level)}</div>
+            <div class="setting"><label class="toggle"><input type="checkbox" id="same" ${st.same?'checked':''}> نفس الشكل لكل اللاعبين بالجولة</label></div>
+            <div class="setting"><label class="toggle"><input type="checkbox" id="colored" ${st.colored?'checked':''}> كاسات ملوّنة (اللون جزء من الحل)</label></div>
+          </div>
+          <div class="label">مثال</div>
+          <div class="preview">${shapeSVG(st.preview, st.colored)}</div>
+          <div class="hint"><span>فتحة غامقة لفوق = عادية</span><span>قاعدة لفوق = مقلوبة</span><span>حافتين ورا بعض = كاسة جوا كاسة</span></div>
+          <div><button id="another">شكل تاني</button></div>
+        </div>
+      </div>
+      <div class="actions"><button class="btn-big" id="start">يلا نلعب</button></div>`;
+    const sync = () => { st.players = st.players.map((p,i)=>($('#p'+i)?.value.trim())||p); st.same=$('#same').checked; st.colored=$('#colored').checked; };
+    bindMusic(); bindSteppers();
+    app.querySelectorAll('[data-seg]').forEach(b => b.onclick = () => {
+      sync(); const k=b.dataset.seg, v=b.dataset.v; st[k] = k==='level'?v:+v;
+      if(k==='level') st.preview = gen(st.level, []); render(); });
+    app.querySelectorAll('[data-del]').forEach(b => b.onclick = () => { sync(); st.players.splice(+b.dataset.del,1); render(); });
+    $('#add').onclick = () => { sync(); st.players.push('لاعب '+ar(st.players.length+1)); render(); $('#p'+(st.players.length-1)).select(); };
+    $('#another').onclick = () => { sync(); st.preview = gen(st.level, []); render(); };
+    $('#colored').onchange = () => { sync(); render(); };
+    $('#start').onclick = () => {
+      sync(); saveSettings(); wake(); Music.start(); Music.sfx('go');
+      st.scores=st.players.map(()=>0); st.round=1; st.turn=0; st.recent=[]; st.curShow=st.showSec; st.curBuild=st.buildSec;
+      st.shape=gen(st.level, st.recent); go('ready');
+    };
+    Music.mode('calm');
+    return;
+  }
+
+  if(P==='ready'){
+    Music.mode('calm');
+    app.innerHTML = `${topbar()}
+      <div class="stage"><div class="center">
+        <div class="whose">الدور على</div>
+        <h1 class="name pop">${esc(st.players[st.turn])}</h1>
+        <div class="dim">جهّز الـ٦ كاسات قدامك، وركّز.</div>
+        <div class="quick">
+          <div><div class="lab">ظهور الشكل</div>${stepper('curShow',st.curShow,fmtS)}</div>
+          <div><div class="lab">وقت الترتيب</div>${stepper('curBuild',st.curBuild,fmtB)}</div>
+        </div>
+        <button class="btn-big" id="go">اعرض الشكل</button>
+      </div></div>
+      <div class="actions"><button class="btn-ghost" id="quit">إنهاء اللعبة</button></div>`;
+    bindMusic(); bindSteppers(); st.bump=-1;
+    $('#go').onclick = () => go('count');
+    $('#quit').onclick = () => go('end');
+    return;
+  }
+
+  if(P==='count'){
+    Music.mode('show');
+    let n=3;
+    const tick = () => {
+      if(n===0){ go('show'); return; }
+      app.innerHTML = `${topbar()}<div class="stage"><div class="count pop">${ar(n)}</div></div>`;
+      bindMusic(); Music.sfx('tick'); n--; timers.push(setTimeout(tick, 750));
+    };
+    tick(); return;
+  }
+
+  if(P==='show'){
+    Music.mode('show'); Music.sfx('go');
+    app.innerHTML = `${topbar()}
+      <div class="stage">${ring('ring-small', st.curShow)}${shapeSVG(st.shape, st.colored)}</div>
+      <div class="actions dim">${esc(st.players[st.turn])}، احفظ الشكل!</div>`;
+    bindMusic();
+    runRing(st.curShow, () => go('build'));
+    return;
+  }
+
+  if(P==='build'){
+    Music.mode('build'); Music.sfx('hide');
+    app.innerHTML = `${topbar()}
+      <div class="stage"><div class="center">
+        <div class="cue pop">اختفى! رتّب الكاسات</div>
+        ${ring('ring-big', st.curBuild)}
+      </div></div>
+      <div class="actions"><button class="btn-big" id="done">خلصت، اكشف الشكل</button></div>`;
+    bindMusic();
+    $('#done').onclick = () => go('check');
+    runRing(st.curBuild, () => { Music.sfx('buzz'); go('check'); }, s => {
+      if(s<=10){ Music.mode('rush'); $('#ring')?.classList.add('urgent'); }
+      if(s<=5 && s>0) Music.sfx('tick');
+    });
+    return;
+  }
+
+  if(P==='check'){
+    Music.mode('calm');
+    app.innerHTML = `${topbar()}
+      <div class="center"><h2>الكشف! قارنوا</h2><div class="dim">كل كاسة بمكانها ووضعيتها صح؟</div></div>
+      <div class="stage">${shapeSVG(st.shape, st.colored)}</div>
+      <div class="judge"><button class="btn-good" id="yes">صح، نقطة</button><button class="btn-bad" id="no">غلط</button></div>`;
+    bindMusic();
+    const next = ok => {
+      if(ok){ st.scores[st.turn]++; st.bump=st.turn; Music.sfx('yes'); } else { st.bump=-1; Music.sfx('no'); }
+      st.turn++;
+      if(st.turn>=st.players.length){
+        st.turn=0; st.round++;
+        if(st.round>st.rounds){ go('end'); return; }
+        st.curShow = Math.max(1, +(st.curShow - st.showDec).toFixed(1));
+        st.curBuild = Math.max(10, st.curBuild - st.buildDec);
+        st.shape = gen(st.level, st.recent);
+      } else if(!st.same) st.shape = gen(st.level, st.recent);
+      go('ready');
+    };
+    $('#yes').onclick=()=>next(true); $('#no').onclick=()=>next(false);
+    return;
+  }
+
+  if(P==='end'){
+    Music.mode('calm'); Music.sfx('win');
+    const ranked = st.players.map((p,i)=>({p,s:st.scores[i]||0})).sort((a,b)=>b.s-a.s);
+    const top = ranked[0]?.s ?? 0, winners = ranked.filter(r=>r.s===top);
+    app.innerHTML = `
+      <div class="topbar"><span class="pill">النتيجة النهائية</span>${musicBtn()}</div>
+      <div class="stage"><div class="center">
+        <h1 class="name pop">${winners.length>1?'تعادل!':esc(winners[0].p)}</h1>
+        <div class="dim">${winners.length>1?'نفس النقاط بالقمة':'هو الفايز بتحدي الكاسات'}</div>
+        <div class="podium">${ranked.map(r=>`<div class="line ${r.s===top?'win':''}"><span>${esc(r.p)}</span><b>${ar(r.s)}</b></div>`).join('')}</div>
+        <div class="actions">
+          <button class="btn-big" id="again">لعبة جديدة بنفس اللاعبين</button>
+          <button id="settings">الإعدادات</button>
+        </div>
+      </div></div>`;
+    bindMusic();
+    $('#again').onclick=()=>{ st.scores=st.players.map(()=>0); st.round=1; st.turn=0; st.curShow=st.showSec; st.curBuild=st.buildSec; st.shape=gen(st.level,st.recent); Music.start(); go('ready'); };
+    $('#settings').onclick=()=>{ st.preview=null; go('setup'); };
+    return;
+  }
+}
+
+function start(data){
+  if(data && data.phase){ Object.assign(st, data); if(['count','show','build'].includes(st.phase)) st.phase='ready'; }
+  render();
+}
+try{ window.claude?.hot?.snapshot?.(() => st); }catch(e){}
+window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
+})();
+</script>
+</body>
+</html>
